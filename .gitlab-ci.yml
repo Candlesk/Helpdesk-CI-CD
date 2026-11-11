@@ -115,7 +115,9 @@ dast:
   stage: dast
   extends: .dind
   image: python:3.12-alpine
-  needs: ["image_scan"]
+  # No `needs:` on purpose. Stage order still runs DAST after the image stage,
+  # but unlike a `needs:` edge it also runs when the image gate is red, so the
+  # vulnerable baseline produces DAST evidence instead of a skipped job.
   timeout: 30m
   variables:
     # The app is published on the dind container, reachable by its alias.
