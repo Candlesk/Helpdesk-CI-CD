@@ -25,8 +25,8 @@ variables:
   DOCKER_TLS_CERTDIR: ""
   DOCKER_HOST: tcp://docker:2375
 
-# Run on merge requests, on every branch push and on tags. The tag pipeline is
-# what produces the red run on v0-vulnerable and the green run on v1-fixed.
+# Run on merge requests, on every branch push and on tags. Branch pushes carry
+# the red run (vulnerable main) and the green run (fix branch / merge request).
 workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
