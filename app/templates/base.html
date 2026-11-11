@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}HelpDesk{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/tickets">HelpDesk</a>
+    {% if user %}
+      <nav>
+        <span class="who">{{ user.full_name }} <span class="role">{{ user.role }}</span></span>
+        {% if user.role == "admin" %}<a href="/admin">Admin</a>{% endif %}
+        <form method="post" action="/logout" class="inline">
+          <button type="submit" class="link">Logout</button>
+        </form>
+      </nav>
+    {% endif %}
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer>HelpDesk demo — intentionally vulnerable training application.</footer>
+</body>
+</html>

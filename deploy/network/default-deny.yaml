@@ -1,0 +1,12 @@
+# Default deny: every pod in the namespace is isolated for both directions.
+# Targeted allows live in the other files of this directory.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: helpdesk
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress

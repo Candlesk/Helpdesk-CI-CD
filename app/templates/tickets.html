@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Tickets — HelpDesk{% endblock %}
+{% block content %}
+<h1>Tickets</h1>
+
+<form method="get" action="/tickets" class="search">
+  <input name="q" value="{{ q }}" placeholder="Search subject or description">
+  <button type="submit">Search</button>
+</form>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Subject</th><th>Owner</th><th>Status</th><th>Priority</th></tr>
+  </thead>
+  <tbody>
+    {% for t in tickets %}
+    <tr>
+      <td>{{ t.id }}</td>
+      <td><a href="/tickets/{{ t.id }}">{{ t.subject }}</a></td>
+      <td>{{ t.owner }}</td>
+      <td>{{ t.status }}</td>
+      <td>{{ t.priority }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="muted">No tickets found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<section class="card">
+  <h2>New ticket</h2>
+  <form method="post" action="/tickets">
+    <label>Subject <input name="subject" required></label>
+    <label>Description <textarea name="body" rows="4" required></textarea></label>
+    <button type="submit">Create ticket</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,16 @@
+# Negative test: Kyverno must reject this pod.
+# Expected: Error from server: admission webhook ... denied the request
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod
+  namespace: helpdesk
+  labels:
+    app.kubernetes.io/component: app
+spec:
+  containers:
+    - name: bad
+      image: nginx:latest
+      securityContext:
+        privileged: true
+        allowPrivilegeEscalation: true

@@ -1,0 +1,15 @@
+# Gitleaks configuration.
+# The intentionally hardcoded secret in app/config.py MUST still be detected;
+# only placeholder/example files are allow-listed.
+
+[[rules]]
+id = "helpdesk-hardcoded-session-secret"
+description = "Hardcoded session signing key"
+regex = '''(?i)SECRET_KEY\s*=\s*["'][^"']{16,}["']'''
+tags = ["secret", "session"]
+
+[allowlist]
+paths = [
+  '''\.env\.example$''',
+  '''docs/''',
+]

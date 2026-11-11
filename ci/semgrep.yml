@@ -1,0 +1,19 @@
+rules:
+  - id: helpdesk-sql-string-interpolation
+    languages: [python]
+    severity: ERROR
+    message: >-
+      SQL query built with string interpolation. Use a parameterised query
+      (cursor.execute(sql, params)) instead.
+    pattern-regex: '(?i)f"[^"]*(select|insert|update|delete|where|ilike)[^"]*\{'
+
+  - id: helpdesk-jinja-safe-filter
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      The Jinja |safe filter disables autoescaping. Do not use it on
+      user-controlled data.
+    paths:
+      include:
+        - "*.html"
+    pattern-regex: '\|\s*safe\b'

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}#{{ ticket.id }} {{ ticket.subject }} — HelpDesk{% endblock %}
+{% block content %}
+<p class="back"><a href="/tickets">&larr; All tickets</a></p>
+<article class="card">
+  <h1>#{{ ticket.id }} {{ ticket.subject }}</h1>
+  <p class="meta">Opened by <strong>{{ ticket.owner }}</strong> · {{ ticket.status }} · {{ ticket.priority }}</p>
+  <p>{{ ticket.body }}</p>
+</article>
+
+<h2>Comments</h2>
+{% for c in comments %}
+  <article class="comment {% if c.internal %}internal{% endif %}">
+    <p class="meta">{{ c.author }} · {{ c.created_at }}{% if c.internal %} · <span class="badge">internal</span>{% endif %}</p>
+    {# VULN V2: |safe disables Jinja autoescaping, so stored HTML/JS executes. #}
+    <p>{{ c.body | safe }}</p>
+  </article>
+{% else %}
+  <p class="muted">No comments yet.</p>
+{% endfor %}
+
+<section class="card">
+  <h2>Add a comment</h2>
+  <form method="post" action="/tickets/{{ ticket.id }}/comments">
+    <textarea name="body" rows="4" required placeholder="Write a comment..."></textarea>
+    <button type="submit">Post comment</button>
+  </form>
+</section>
+{% endblock %}

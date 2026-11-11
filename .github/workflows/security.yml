@@ -1,0 +1,124 @@
+name: security-pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: helpdesk:ci
+
+jobs:
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest \
+            scan --config auto --config ci/semgrep.yml \
+            --error --severity ERROR --metrics off
+
+  dependencies:
+    name: Dependencies (Trivy SCA)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan
+        run: |
+          docker run --rm -v "$PWD:/repo" aquasec/trivy:latest \
+            fs --scanners vuln --exit-code 1 --severity HIGH,CRITICAL \
+            --skip-dirs .git /repo
+
+  secrets:
+    name: Secrets (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks (full history)
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest \
+            detect --source /repo --redact --exit-code 1
+
+  iac:
+    name: IaC (Trivy config)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy config scan
+        run: |
+          docker run --rm -v "$PWD:/repo" aquasec/trivy:latest \
+            config --exit-code 1 --severity HIGH,CRITICAL /repo/deploy
+
+  image:
+    name: Container image (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t "$IMAGE" .
+      - name: Trivy image scan
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image --exit-code 1 \
+            --severity HIGH,CRITICAL "$IMAGE"
+
+  dast:
+    name: DAST (ZAP, authenticated)
+    runs-on: ubuntu-latest
+    needs: [image]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start the application
+        run: |
+          cp .env.example .env
+          sed -i 's/__SET_A_RANDOM_DEV_PASSWORD__/ci-test-password/' .env
+          docker compose up -d --build
+          for _ in $(seq 1 60); do
+            if curl -fsS http://localhost:8000/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Application did not become healthy"
+          docker compose logs --no-color
+          exit 1
+
+      - name: ZAP authenticated scan
+        run: |
+          chmod -R 777 tests/dast
+          docker run --rm --network host \
+            -v "$PWD/tests/dast:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap.sh -cmd -autorun /zap/wrk/zap.yaml
+
+      - name: Scripted authorization checks
+        run: python3 tests/dast/idor_check.py
+
+      - name: Enforce DAST policy
+        run: python3 tests/dast/check_report.py
+
+      - name: Upload ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: |
+            tests/dast/zap-report.html
+            tests/dast/zap-report.json
+          if-no-files-found: ignore
+
+      - name: Container logs
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop the application
+        if: always()
+        run: docker compose down -v

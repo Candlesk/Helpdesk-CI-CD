@@ -1,0 +1,108 @@
+# Admission control: non-hardened pods are rejected, not just reported.
+# Install Kyverno first (see README), then: kubectl apply -f this-file
+#
+# Per-container rules use `foreach` so EVERY container is checked, not just
+# one matching element of the list.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: helpdesk-pod-hardening
+  annotations:
+    policies.kyverno.io/title: HelpDesk pod hardening
+    policies.kyverno.io/description: >-
+      Requires non-root execution, no privilege escalation, dropped
+      capabilities, seccomp, resource limits and a pinned image tag.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: require-run-as-non-root
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [helpdesk]
+      validate:
+        message: "Pods must set securityContext.runAsNonRoot: true."
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+
+    - name: disallow-privileged-and-escalation
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [helpdesk]
+      validate:
+        message: "Every container must set privileged=false, allowPrivilegeEscalation=false and drop ALL capabilities."
+        foreach:
+          - list: "request.object.spec.containers"
+            pattern:
+              securityContext:
+                privileged: false
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+
+    - name: require-seccomp-runtime-default
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [helpdesk]
+      validate:
+        message: "Pods must set seccompProfile.type: RuntimeDefault."
+        pattern:
+          spec:
+            securityContext:
+              seccompProfile:
+                type: RuntimeDefault
+
+    - name: require-resource-limits
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [helpdesk]
+      validate:
+        message: "Every container must declare CPU and memory limits."
+        foreach:
+          - list: "request.object.spec.containers"
+            pattern:
+              resources:
+                limits:
+                  cpu: "?*"
+                  memory: "?*"
+
+    - name: disallow-latest-tag
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [helpdesk]
+      validate:
+        message: "Images must use an explicit tag, not :latest."
+        foreach:
+          - list: "request.object.spec.containers"
+            pattern:
+              image: "!*:latest"
+
+    - name: require-read-only-root-for-app
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [helpdesk]
+              selector:
+                matchLabels:
+                  app.kubernetes.io/component: app
+      validate:
+        message: "The application container must use a read-only root filesystem."
+        foreach:
+          - list: "request.object.spec.containers"
+            pattern:
+              securityContext:
+                readOnlyRootFilesystem: true
